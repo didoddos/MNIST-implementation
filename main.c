@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 //we're going to use arena allocation instead of 
-// The "Brain": Swaps Big-Endian to Little-Endian
+// reversing big-endian to little-endian
 uint32_t swap_endian(uint32_t val) {
     return ((val << 24)               | 
             ((val << 8) & 0x00FF0000) | 
@@ -11,7 +11,7 @@ uint32_t swap_endian(uint32_t val) {
             (val >> 24));
 }
 
-// The "Mirror": Matches the MNIST file header exactly
+// using pragma as a precaution
 #pragma pack(push, 1)
 typedef struct {
     uint32_t magic_number;
@@ -22,7 +22,7 @@ typedef struct {
 #pragma pack(pop)
 
 int main() {
-    // 1. Open the file in Binary Read mode
+    // opening the file and reading it in binary mode
     FILE *file = fopen("data/train-images.idx3-ubyte", "rb");
     
     if (file == NULL) {
@@ -30,7 +30,7 @@ int main() {
         return 1;
     }
 
-    // 2. Read the 16-byte header into our struct
+    // reading the data into our struct and packing it tightly
     MNIST_Header header;
     size_t read_check = fread(&header, sizeof(MNIST_Header), 1, file);
 
@@ -40,13 +40,13 @@ int main() {
         return 1;
     }
 
-    // 3. Swap the endianness of the values we just read
+    // swapping the bytes that we are reading from big to little-endian using the function above
     uint32_t magic = swap_endian(header.magic_number);
     uint32_t count = swap_endian(header.num_images);
     uint32_t rows  = swap_endian(header.num_rows);
     uint32_t cols  = swap_endian(header.num_cols);
 
-    // 4. Print the results to the terminal
+    // Sanity check to make sure everything is working
     printf("--- MNIST Dataset Sanity Check ---\n");
     printf("Magic Number: %u (Should be 2051)\n", magic);
     printf("Number of Images: %u (Should be 60000)\n", count);
