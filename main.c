@@ -5,11 +5,11 @@
 // --- Memory Management ---
 typedef struct {
     size_t size;
-    size_t offset;
+    size_t offset;// how much you're actually using
     uint8_t *buffer;
 } Arena;
 
-Arena* arena_init(size_t capacity) {
+Arena* arena_init(size_t capacity) {//Arena initializer
     Arena *a = malloc(sizeof(Arena));
     a->size = capacity;
     a->offset = 0;
@@ -21,7 +21,7 @@ Arena* arena_init(size_t capacity) {
     return a;
 }
 
-void* arena_alloc(Arena *a, size_t size) {
+void* arena_alloc(Arena *a, size_t size) {//allocating arena of size x
     size_t aligned_size = (size + 7) & ~7;
     if (a->offset + aligned_size > a->size) return NULL;
     void *ptr = &a->buffer[a->offset];
@@ -30,7 +30,7 @@ void* arena_alloc(Arena *a, size_t size) {
 }
 
 // --- Utility Functions ---
-uint32_t swap_endian(uint32_t val) {
+uint32_t swap_endian(uint32_t val) {//big endian to little endian to comply with cpu architecture
     return ((val << 24)               | 
             ((val << 8) & 0x00FF0000) | 
             ((val >> 8) & 0x0000FF00) | 
@@ -38,10 +38,10 @@ uint32_t swap_endian(uint32_t val) {
 }
 
 int main() {
-    // 1. Initialize Arena (128MB)
+    //Initialize Arena (128MB)
     Arena *train_arena = arena_init(128 * 1024 * 1024);
 
-    // 2. Open Files
+    //Open Files
     FILE *img_file = fopen("data/train-images.idx3-ubyte", "rb");
     FILE *lbl_file = fopen("data/train-labels.idx1-ubyte", "rb");
 
@@ -50,7 +50,7 @@ int main() {
         return 1;
     }
 
-    // 3. Read Metadata (Manual read to avoid struct padding issues)
+    //Read Metadata (Manual read to avoid struct padding issues)
     uint32_t magic, count, rows, cols;
     
     fseek(img_file, 0, SEEK_SET);
@@ -63,12 +63,12 @@ int main() {
     rows  = swap_endian(rows);
     cols  = swap_endian(cols);
 
-    // 4. Validate and Align
+    // Validate and align
     // MNIST images ALWAYS start at byte 16. Labels ALWAYS start at byte 8.
     fseek(img_file, 16, SEEK_SET);
     fseek(lbl_file, 8, SEEK_SET);
 
-    // 5. Load Data
+    // load the data
     size_t img_size = (size_t)count * rows * cols;
     uint8_t *images_data = (uint8_t*)arena_alloc(train_arena, img_size);
     uint8_t *labels_data = (uint8_t*)arena_alloc(train_arena, count);
