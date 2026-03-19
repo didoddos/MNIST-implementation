@@ -2,19 +2,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-//we're going to use arena allocation instead of malloc and free
-// reversing big-endian to little-endian
-uint32_t swap_endian(uint32_t val) {
-    return ((val << 24)               | 
-            ((val << 8) & 0x00FF0000) | 
-            ((val >> 8) & 0x0000FF00) | 
-            (val >> 24));
-}
-typedef struct{
+// --- Memory Management ---
+typedef struct {
     size_t size;
     size_t offset;
     uint8_t *buffer;
-}Arena;
+} Arena;
 
 Arena* arena_init(size_t capacity) {
     Arena *a = malloc(sizeof(Arena));
@@ -22,78 +15,89 @@ Arena* arena_init(size_t capacity) {
     a->offset = 0;
     a->buffer = malloc(capacity);
     if (!a->buffer) {
-        perror("Failed to allocate Arena buffer");
+        perror("Arena buffer allocation failed");
         exit(1);
     }
     return a;
 }
+
 void* arena_alloc(Arena *a, size_t size) {
-    // 8-byte Alignment (Essential for SIMD/Modern CPUs)
     size_t aligned_size = (size + 7) & ~7;
-    
-    if (a->offset + aligned_size > a->size) {
-        fprintf(stderr, "Arena out of memory!\n");
-        return NULL;
-    }
-    
+    if (a->offset + aligned_size > a->size) return NULL;
     void *ptr = &a->buffer[a->offset];
     a->offset += aligned_size;
     return ptr;
 }
 
-void arena_reset(Arena *a, size_t save_point) {
-    a->offset = save_point;
+// --- Utility Functions ---
+uint32_t swap_endian(uint32_t val) {
+    return ((val << 24)               | 
+            ((val << 8) & 0x00FF0000) | 
+            ((val >> 8) & 0x0000FF00) | 
+            (val >> 24));
 }
-
-void arena_destroy(Arena *a) {
-    free(a->buffer);
-    free(a);
-}
-
-
-
-// using pragma as a precaution
-#pragma pack(push, 1)
-typedef struct {
-    uint32_t magic_number;
-    uint32_t num_images;
-    uint32_t num_rows;
-    uint32_t num_cols;
-} MNIST_Header;
-#pragma pack(pop)
 
 int main() {
-    // opening the file and reading it in binary mode
-    FILE *file = fopen("data/train-images.idx3-ubyte", "rb");
+    // 1. Initialize Arena (128MB)
+    Arena *train_arena = arena_init(128 * 1024 * 1024);
+
+    // 2. Open Files
+    FILE *img_file = fopen("data/train-images.idx3-ubyte", "rb");
+    FILE *lbl_file = fopen("data/train-labels.idx1-ubyte", "rb");
+
+    if (!img_file || !lbl_file) {
+        printf("Error: Could not find MNIST files in data/ folder.\n");
+        return 1;
+    }
+
+    // 3. Read Metadata (Manual read to avoid struct padding issues)
+    uint32_t magic, count, rows, cols;
     
-    if (file == NULL) {
-        perror("Error: Could not open the file. Is it in the /data folder?");
+    fseek(img_file, 0, SEEK_SET);
+    fread(&magic, 4, 1, img_file);
+    fread(&count, 4, 1, img_file);
+    fread(&rows, 4, 1, img_file);
+    fread(&cols, 4, 1, img_file);
+
+    count = swap_endian(count);
+    rows  = swap_endian(rows);
+    cols  = swap_endian(cols);
+
+    // 4. Validate and Align
+    // MNIST images ALWAYS start at byte 16. Labels ALWAYS start at byte 8.
+    fseek(img_file, 16, SEEK_SET);
+    fseek(lbl_file, 8, SEEK_SET);
+
+    // 5. Load Data
+    size_t img_size = (size_t)count * rows * cols;
+    uint8_t *images_data = (uint8_t*)arena_alloc(train_arena, img_size);
+    uint8_t *labels_data = (uint8_t*)arena_alloc(train_arena, count);
+
+    if (!images_data || !labels_data) {
+        printf("Arena out of memory!\n");
         return 1;
     }
 
-    // reading the data into our struct and packing it tightly
-    MNIST_Header header;
-    size_t read_check = fread(&header, sizeof(MNIST_Header), 1, file);
+    fread(images_data, 1, img_size, img_file);
+    fread(labels_data, 1, count, lbl_file);
 
-    if (read_check != 1) {
-        printf("Error: Failed to read the header.\n");
-        fclose(file);
-        return 1;
+    // 6. Visualizer (Using the "Double-Wide" trick for better proportion)
+    int target_idx = 0; 
+    printf("Label: %u\n", labels_data[target_idx]);
+    printf("+------------------------------------------------------+\n");
+    for (int y = 0; y < 28; y++) {
+        printf("|");
+        for (int x = 0; x < 28; x++) {
+            uint8_t pixel = images_data[target_idx * 784 + y * 28 + x];
+            if (pixel > 150)      printf("@@"); // Use 2 chars to make it square
+            else if (pixel > 50)  printf("..");
+            else                  printf("  ");
+        }
+        printf("|\n");
     }
+    printf("+------------------------------------------------------+\n");
 
-    // swapping the bytes that we are reading from big to little-endian using the function above
-    uint32_t magic = swap_endian(header.magic_number);
-    uint32_t count = swap_endian(header.num_images);
-    uint32_t rows  = swap_endian(header.num_rows);
-    uint32_t cols  = swap_endian(header.num_cols);
-
-    // Sanity check to make sure everything is working
-    printf("--- MNIST Dataset Sanity Check ---\n");
-    printf("Magic Number: %u (Should be 2051)\n", magic);
-    printf("Number of Images: %u (Should be 60000)\n", count);
-    printf("Resolution: %u x %u pixels\n", rows, cols);
-    printf("----------------------------------\n");
-
-    fclose(file);
+    fclose(img_file);
+    fclose(lbl_file);
     return 0;
 }
