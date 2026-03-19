@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-//we're going to use arena allocation instead of 
+//we're going to use arena allocation instead of malloc and free
 // reversing big-endian to little-endian
 uint32_t swap_endian(uint32_t val) {
     return ((val << 24)               | 
@@ -10,6 +10,47 @@ uint32_t swap_endian(uint32_t val) {
             ((val >> 8) & 0x0000FF00) | 
             (val >> 24));
 }
+typedef struct{
+    size_t size;
+    size_t offset;
+    uint8_t *buffer;
+}Arena;
+
+Arena* arena_init(size_t capacity) {
+    Arena *a = malloc(sizeof(Arena));
+    a->size = capacity;
+    a->offset = 0;
+    a->buffer = malloc(capacity);
+    if (!a->buffer) {
+        perror("Failed to allocate Arena buffer");
+        exit(1);
+    }
+    return a;
+}
+void* arena_alloc(Arena *a, size_t size) {
+    // 8-byte Alignment (Essential for SIMD/Modern CPUs)
+    size_t aligned_size = (size + 7) & ~7;
+    
+    if (a->offset + aligned_size > a->size) {
+        fprintf(stderr, "Arena out of memory!\n");
+        return NULL;
+    }
+    
+    void *ptr = &a->buffer[a->offset];
+    a->offset += aligned_size;
+    return ptr;
+}
+
+void arena_reset(Arena *a, size_t save_point) {
+    a->offset = save_point;
+}
+
+void arena_destroy(Arena *a) {
+    free(a->buffer);
+    free(a);
+}
+
+
 
 // using pragma as a precaution
 #pragma pack(push, 1)
