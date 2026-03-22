@@ -1,0 +1,51 @@
+# 🧠 MNIST from Scratch: The "Hard Road" Checklist
+**Project:** Digit Recognizer in C (Manual Memory Management)
+**Status:** Phase 2 in Progress
+
+---
+
+## 🏗️ Phase 1: The Data Loader (The Foundation)
+- [x] **Implement Byte-Swapping:** Convert 32-bit integers from Big-Endian (MNIST) to Little-Endian (CPU).
+- [x] **Parse Headers:** Read magic numbers and dimensions from `.ubyte` files.
+- [x] **Memory Management:** Implemented custom **Arena Allocator** for high-performance memory control.
+- [x] **The Visualizer:** Function to print 28x28 arrays to terminal using ASCII characters.
+
+---
+
+## 📈 Phase 1.5: Data Pre-processing (The Bridge)
+- [ ] **Input Normalization:** Convert `uint8_t` pixels (0–255) to `float` (0.0–1.0).
+- [ ] **Data Shuffling:** (Optional/Pro) Scramble training order to improve learning stability.
+
+---
+
+## 🏗️ Phase 2: Math & Architecture (The Engine)
+- [x] **Define the Structure:** 784 Input → 128 Hidden → 10 Output neurons.
+- [x] **Weight Initialization:** Implemented **Xavier Initialization** (Verified via statistical test).
+- [ ] **Activation Functions:** - [ ] **ReLU:** For the hidden layer (Rectified Linear Unit).
+    - [ ] **Softmax:** For the output layer (Probability distribution).
+- [ ] **Matrix Operations:**
+    - [ ] **Matrix-Vector Multiplication:** `matmul` logic for flat 1D arrays.
+    - [ ] **Vector Addition:** Adding Bias vectors to the weighted sums.
+
+---
+
+## 🧠 Phase 3: Training (The Brain)
+- [ ] **Forward Propagation:** Calculate the full chain from pixels to final guess.
+- [ ] **Loss Calculation:** Implement **Cross-Entropy Loss**.
+- [ ] **Backpropagation:** The "Final Boss"—calculate gradients using the chain rule.
+- [ ] **Gradient Descent:** Update weights using $W_{new} = W_{old} - (learning\_rate \times gradient)$.
+- [ ] **Epoch Loop:** Iterate through the 60,000 images multiple times.
+
+---
+
+## 🎓 Phase 4: Validation & Testing (The Final Exam)
+- [ ] **Test Set Loader:** Load the 10,000 "unseen" test images.
+- [ ] **Accuracy Metric:** Run the test set and calculate the success percentage.
+- [ ] **Inference Tool:** Mode to pick a specific image, show ASCII, and print: "I think this is a: 7".
+
+---
+
+## 🛠️ Technical Notes (Current Build)
+- **Memory Pool:** 256MB Arena
+- **Weight Range:** ~ -0.08 to +0.08 (Xavier)
+- **Compiler Flags:** `gcc main.c -o mnist -lm`
