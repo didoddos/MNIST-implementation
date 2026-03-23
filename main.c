@@ -61,6 +61,24 @@ uint32_t swap_endian(uint32_t val) {
             (val >> 24));
 }
 
+//normalistion function
+void prepare_input(float *input_vector, uint8_t *images_data,int target_idx){
+
+    uint8_t *raw_image_ptr = &images_data[target_idx * 784];
+
+    for(int i =0;i<784;i++){
+
+        input_vector[i] = (float)raw_image_ptr[i]/255.0f;
+    }
+}
+
+
+
+
+
+
+
+
 int main() {
     // Initializes the random number generator using the system clock
     srand(time(NULL));
@@ -151,7 +169,25 @@ int main() {
     // Randomizes the weights using Xavier math to prepare for training
     initialize_weights(w_ih, 784, 128);
     initialize_weights(w_ho, 128, 10);
+    // 1. Allocate a "workspace" buffer for a single normalized image
+    // This is 784 floats (3136 bytes)
+    float *input_vector = (float*)arena_alloc(train_arena, 784 * sizeof(float));
 
+    if (!input_vector) {
+        printf("Failed to allocate input vector!\n");
+        return 1;
+    }
+
+    // 2. Call the function to normalize the chosen image (target_idx)
+    prepare_input(input_vector, images_data, target_idx);
+
+    // 3. Test the result: print the first few normalized pixels
+    printf("\n--- Normalization Test ---");
+    printf("\nFirst 5 normalized pixels of image %d:\n", target_idx);
+    for(int i = 0; i < 5; i++) {
+        printf("%f ", input_vector[i]);
+    }
+    printf("\n");
     // Loops to initialize the hidden layer biases to a starting value of zero
     for(int i=0; i<128; i++) b_h[i] = 0.0f;
     // Loops to initialize the output layer biases to a starting value of zero

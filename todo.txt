@@ -13,7 +13,7 @@
 ---
 
 ## 📈 Phase 1.5: Data Pre-processing (The Bridge)
-- [ ] **Input Normalization:** Convert `uint8_t` pixels (0–255) to `float` (0.0–1.0).
+- [x ] **Input Normalization:** Convert `uint8_t` pixels (0–255) to `float` (0.0–1.0).
 - [ ] **Data Shuffling:** (Optional/Pro) Scramble training order to improve learning stability.
 
 ---
