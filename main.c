@@ -73,7 +73,34 @@ void prepare_input(float *input_vector, uint8_t *images_data,int target_idx){
 }
 
 
+void apply_relu(float *vector, int size) {
+    for (int i = 0; i < size; i++) {
+        if (vector[i] < 0) vector[i] = 0;
+    }
+}
 
+void apply_softmax(float *vector, int size) {
+    float max_val = vector[0];
+    for (int i = 1; i < size; i++) if (vector[i] > max_val) max_val = vector[i];
+
+    float sum = 0.0f;
+    for (int i = 0; i < size; i++) {
+        vector[i] = expf(vector[i] - max_val); // Subtract max for numerical stability
+        sum += vector[i];
+    }
+    for (int i = 0; i < size; i++) vector[i] /= sum;
+}
+
+void forward_layer(float *input, float *weights, float *bias, float *output, int in_dim, int out_dim) {
+    for (int j = 0; j < out_dim; j++) {
+        float sum = bias[j];
+        for (int i = 0; i < in_dim; i++) {
+            // Indexing: row * total_cols + col
+            sum += input[i] * weights[i * out_dim + j];
+        }
+        output[j] = sum;
+    }
+}
 
 
 
@@ -212,7 +239,29 @@ int main() {
     printf("Arena Space Used: %zu MB / %zu MB\n", 
             train_arena->offset / (1024 * 1024), 
             train_arena->size / (1024 * 1024));
+    // --- NEW WORKSPACE ALLOCATIONS ---
+float *h_layer = (float*)arena_alloc(train_arena, 128 * sizeof(float));
+float *o_layer = (float*)arena_alloc(train_arena, 10 * sizeof(float));
 
+if (!h_layer || !o_layer) {
+    printf("Failed to allocate layer buffers!\n");
+    return 1;
+}
+
+// --- PERFORM FORWARD PASS ---
+// 1. Input (784) -> Hidden (128)
+forward_layer(input_vector, w_ih, b_h, h_layer, 784, 128);
+apply_relu(h_layer, 128);
+
+// 2. Hidden (128) -> Output (10)
+forward_layer(h_layer, w_ho, b_o, o_layer, 128, 10);
+apply_softmax(o_layer, 10);
+
+// --- TEST THE OUTPUT ---
+printf("\n--- Network Prediction (Image %d) ---\n", target_idx);
+for (int i = 0; i < 10; i++) {
+    printf("Digit %d: %6.2f%%\n", i, o_layer[i] * 100.0f);
+}
     // Closes the open file descriptors to avoid resource leaks
     fclose(img_file);
     fclose(lbl_file);
